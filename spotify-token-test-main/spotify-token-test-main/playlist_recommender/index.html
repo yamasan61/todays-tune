@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Playlist Recommender</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Spotify おすすめ楽曲</h1>
+  <div class="wrapper">
+    <button id="loginBtn">Spotify でログイン</button>
+  </div>
+ 
+  <!-- ▼ ジャンル選択プルダウンを追加 -->
+  <div class="selector">
+    <label>ジャンル:
+      <select id="genreSelect"></select>
+    </label>
+  </div>
+  <div id="tracks"></div>  <!-- ← 既存要素はそのまま -->
+
+  <script type="module">
+    import { createPKCE } from './pkce.js';
+
+    const genreSelect = document.getElementById('genreSelect');
+    
+// ページロード時に genres.json を読み込む
+try {
+  const gRes  = await fetch('genres.json');
+  if (!gRes.ok) throw new Error('genres.json 読込失敗');
+  const { genres } = await gRes.json();
+  genres.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.value;
+    opt.textContent = g.label;
+    genreSelect.appendChild(opt);
+  });
+} catch(e) {
+  console.error(e);
+  genreSelect.innerHTML = '<option>読込失敗</option>';
+  genreSelect.disabled  = true;
+}
+
+
+    const clientId    = '89175f465b5d42c9aac789c37cf8d730';
+    const redirectUri = 'https://yamasan61.github.io/spotify-token-test/playlist_recommender/callback.html';
+    const scope       = 'user-read-private';
+
+    const loginBtn = document.getElementById('loginBtn');
+    const tracksElm = document.getElementById('tracks');
+
+    loginBtn.addEventListener('click', async () => {
+     const { verifier, challenge } = await createPKCE();
+     console.log('set verifier', verifier);
+     sessionStorage.setItem('code_verifier', verifier);
+
+      const params = new URLSearchParams({
+        client_id: clientId,
+        response_type: 'code',
+        redirect_uri: redirectUri,
+        scope,
+        code_challenge_method: 'S256',
+        code_challenge: challenge,
+        show_dialog: 'true'
+      });
+      location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
+    });
+
+    const accessToken = sessionStorage.getItem('access_token');
+    if (accessToken) {
+      loginBtn.style.display = 'none';
+      fetchRecommendations(accessToken);
+    }
+
+async function fetchRecommendations(token) {
+  const headers = { Authorization: 'Bearer ' + token };
+
+  // ① recommendations を試す
+  let res = await fetch(
+    'https://api.spotify.com/v1/recommendations?seed_genres=pop&limit=10&market=JP',
+    { headers }
+  );
+
+  // ② 404 なら search にフォールバック
+  if (res.status === 404) {
+    const query =
+      'https://api.spotify.com/v1/search?q=genre%3Apop&type=track&limit=10&market=JP';
+    res = await fetch(query, { headers });
+  }
+
+  if (!res.ok) throw new Error('API error ' + res.status);
+
+  // recommendations → {tracks} , search → {tracks:{items}}
+  const data = await res.json();
+  const list = data.tracks?.items ?? data.tracks ?? [];
+  if (!list.length) {
+    tracksElm.textContent = '曲が取得できませんでした';
+    return;
+  }
+
+  tracksElm.innerHTML = '';
+  list.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <img src="${t.album.images[0]?.url || ''}" alt="${t.name}">
+      <p class="title">${t.name}</p>
+      <p class="artist">${t.artists.map(a => a.name).join(', ')}</p>`;
+    tracksElm.appendChild(card);
+  });
+}
+
+  </script>
+</body>
+</html>

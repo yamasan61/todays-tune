@@ -1,0 +1,32 @@
+{
+  "genres": [
+    {
+      "label": "ポップ",
+      "value": "pop"
+    },
+    {
+      "label": "ロック",
+      "value": "rock"
+    },
+    {
+      "label": "ジャズ",
+      "value": "jazz"
+    },
+    {
+      "label": "ヒップホップ",
+      "value": "hip-hop"
+    },
+    {
+      "label": "クラシック",
+      "value": "classical"
+    },
+    {
+      "label": "エレクトロニック",
+      "value": "electronic"
+    },
+    {
+      "label": "R&B",
+      "value": "r-n-b"
+    }
+  ]
+}
